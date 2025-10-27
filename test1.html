@@ -2,83 +2,164 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Petstore Demo</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Petstore Demo — с выпадающим статусом</title>
     <style>
+        :root {
+            --gap: 12px;
+            --max-width: 900px;
+            --primary-bg: #f8f9fb;
+            --card-bg: #fff;
+            --accent: #1976d2;
+        }
         body {
-            font-family: sans-serif; margin: 10px;
+            margin: 0;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+            background: var(--primary-bg);
+            color: #111;
+            display: flex;
+            justify-content: center;
+            padding: 20px;
         }
-        #pet-list { margin-top: 15px; }
-        button {
-            font-size: 1em; padding: 7px 17px; border-radius: 7px; border: 1px solid #888;
-            margin: 0 5px 7px 0; cursor: pointer;
+        .container {
+            width: 100%;
+            max-width: var(--max-width);
         }
-        .modal, .overlay {
-            display: none; position: fixed; left: 0; top: 0; width: 100vw; height: 100vh;
-            justify-content: center; align-items: center;
+        .controls {
+            display: flex;
+            gap: var(--gap);
+            align-items: center;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
         }
-        .modal {
-            z-index: 2; background: #fff; border: 1px solid #333;
-            padding: 18px 30px; border-radius: 12px; text-align: center;
-            width: 2500px; min-width: 2000px; max-width: 95vw;
-            box-sizing: border-box;
+        .controls button {
+            padding: 10px 14px;
+            border: 1px solid rgba(0,0,0,0.08);
+            background: var(--card-bg);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 15px;
         }
-        .overlay {
-            background: rgba(0,0,0,0.2); z-index: 1;
+        #pet-list {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 14px;
+            box-shadow: 0 4px 12px rgba(17,17,17,0.04);
+            min-height: 80px;
+        }
+        #pet-list ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: grid;
+            gap: 8px;
+        }
+        #pet-list li {
+            padding: 10px;
+            border-radius: 8px;
+            background: #fbfdff;
+            border: 1px solid rgba(0,0,0,0.03);
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            align-items: center;
+            flex-wrap: wrap;
         }
         .edit-row input, .edit-row select {
-            width: 80px; margin-right: 9px; font-size: 1em;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(0,0,0,0.08);
+            font-size: 14px;
         }
-        input, select {
-            font-size: 1em; padding: 5px; border-radius: 7px; border: 1px solid #aaa;
+        .overlay, .modal {
+            display: none;
         }
-        ul {
-            padding-left: 0;
+        .overlay.visible {
+            display: block;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.28);
+            z-index: 50;
         }
-        li {
-            list-style: none; margin-bottom: 8px; font-size: 1em;
+        .modal.visible {
+            display: block;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%,-50%);
+            z-index: 60;
+            background: var(--card-bg);
+            padding: 18px;
+            border-radius: 12px;
+            width: min(520px, 94%);
+            box-shadow: 0 12px 40px rgba(0,0,0,0.18);
         }
-        .edit-row {
-            display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 5px;
+        .modal .row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+            align-items: center;
+            flex-wrap: wrap;
         }
-        /* мобильная версия */
-        @media (max-width: 700px) {
-            button { width: 99%; font-size: 1.2em; margin-bottom: 10px; }
-            .modal {
-                width: 96vw !important; min-width: 0 !important; padding: 17px 7px;
-            }
-            .edit-row, .edit-row input, .edit-row select {
-                flex-direction: column !important; width: 99% !important;
-                margin: 2px auto 6px auto !important;
-            }
-            .edit-row input, .edit-row select { font-size: 1.17em;}
-            input, select { width: 97vw !important; font-size: 1.17em;}
-            li { font-size: 1.15em; }
+        .modal input, .modal select {
+            padding: 8px;
+            border-radius: 8px;
+            border: 1px solid rgba(0,0,0,0.08);
+            font-size: 14px;
+        }
+        .modal .actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        @media (max-width: 640px) {
+            .controls { flex-direction: column; align-items: stretch; }
+            .controls button { width: 100%; }
+            #pet-list li { flex-direction: column; align-items: flex-start; }
+            .modal .row { flex-direction: column; align-items: stretch; }
+            .modal .actions { flex-direction: column; align-items: stretch; }
+            .modal .actions button { width: 100%; }
         }
     </style>
 </head>
 <body>
-    <button id="show-btn">Показать список Pet ID</button>
-    <button id="add-btn">Добавить</button>
-    <button id="edit-btn">Редактировать</button>
-    <div id="pet-list"></div>
+    <div class="container">
+        <div class="controls">
+            <button id="show-btn">Показать список Pet ID</button>
+            <button id="add-btn">Добавить</button>
+            <button id="edit-btn">Редактировать</button>
+        </div>
+
+        <div id="pet-list">Нажмите "Показать список Pet ID"</div>
+    </div>
 
     <div id="overlay" class="overlay"></div>
+
     <div id="modal" class="modal">
-        <h3 style="margin-top:-3px;">Добавить питомца</h3>
-        <input type="number" id="petid-modal" placeholder="petid"><br>
-        <input type="text" id="petname-modal" placeholder="имя"><br>
-        <select id="petstatus-modal">
-            <option value="available">available</option>
-            <option value="pending">pending</option>
-            <option value="sold">sold</option>
-        </select><br>
-        <button id="confirm-add">Подтвердить</button>
-        <button id="cancel-add">Отмена</button>
+        <h3>Добавить питомца</h3>
+        <div class="row">
+            <label>petid</label>
+            <input type="number" id="petid-modal" placeholder="petid">
+        </div>
+        <div class="row">
+            <label>имя</label>
+            <input type="text" id="petname-modal" placeholder="имя">
+        </div>
+        <div class="row">
+            <label>статус</label>
+            <select id="petstatus-modal">
+                <option value="available">available</option>
+                <option value="pending">pending</option>
+                <option value="sold">sold</option>
+            </select>
+        </div>
+        <div class="actions">
+            <button id="confirm-add">Подтвердить</button>
+            <button id="cancel-add">Отмена</button>
+        </div>
     </div>
 
     <script>
-        const statuses = ["available", "pending", "sold"];
         let petList = [];
         let inEditMode = false;
 
@@ -87,23 +168,14 @@
             petList = [];
             const petListDiv = document.getElementById('pet-list');
             petListDiv.innerHTML = 'Загружается...';
-
             for (const id of petIds) {
                 try {
                     const res = await fetch(`https://petstore.swagger.io/v2/pet/${id}`, {
-                        method: 'GET',
-                        headers: {
-                            'accept': 'application/json',
-                            'api_key': 'special-key'
-                        }
+                        headers: { 'accept': 'application/json', 'api_key': 'special-key' }
                     });
-                    if (!res.ok) {
-                        petList.push({ id, name: '', status: '', error: true });
-                        continue;
-                    }
                     const data = await res.json();
                     petList.push({ id: data.id, name: data.name || '', status: data.status || '', error: false });
-                } catch (e) {
+                } catch {
                     petList.push({ id, name: '', status: '', error: true });
                 }
             }
@@ -112,106 +184,89 @@
 
         function renderPetList() {
             const petListDiv = document.getElementById('pet-list');
-            if (petList.length === 0) {
-                petListDiv.innerHTML = 'Нет данных';
-                return;
-            }
+            if (!petList.length) { petListDiv.innerHTML = 'Нет данных'; return; }
             let html = '<ul>';
             petList.forEach((pet, idx) => {
                 if (pet.error) {
-                    html += `<li>petid: ${pet.id} — не найден</li>`;
+                    html += `<li>petid: ${pet.id} — <strong>не найден</strong></li>`;
                 } else if (inEditMode) {
                     html += `
                         <li class="edit-row">
-                            <input value="${pet.id}" disabled>
-                            <input value="${pet.name}" id="edit-name-${idx}">
-                            <select id="edit-status-${idx}">
-                                ${statuses.map(s => `<option value="${s}" ${pet.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-                            </select>
-                            <button onclick="saveEdit(${idx})">Сохранить</button>
+                            <div><input value="${pet.id}" disabled></div>
+                            <div><input value="${escapeHtml(pet.name)}" id="edit-name-${idx}"></div>
+                            <div>
+                                <select id="edit-status-${idx}">
+                                    ${['available','pending','sold'].map(
+                                        s => `<option value="${s}" ${s===pet.status?'selected':''}>${s}</option>`
+                                    ).join('')}
+                                </select>
+                            </div>
+                            <div><button onclick="saveEdit(${idx})">Сохранить</button></div>
                         </li>`;
                 } else {
-                    html += `<li>petid: ${pet.id} — имя: ${pet.name} — статус: ${pet.status}</li>`;
+                    html += `<li><div>petid: <strong>${pet.id}</strong></div><div>имя: <strong>${escapeHtml(pet.name)}</strong></div><div>статус: <strong>${escapeHtml(pet.status)}</strong></div></li>`;
                 }
             });
             html += '</ul>';
             petListDiv.innerHTML = html;
         }
 
+        function escapeHtml(str) {
+            return String(str || '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+        }
+
         window.saveEdit = async function(idx) {
             const pet = petList[idx];
-            const name = document.getElementById('edit-name-' + idx).value;
-            const status = document.getElementById('edit-status-' + idx).value;
-            const body = {
-                id: pet.id,
-                name: name,
-                photoUrls: [],
-                status: status
-            };
-            const res = await fetch('https://petstore.swagger.io/v2/pet', {
-                method: 'PUT',
-                headers: {
-                    'accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'api_key': 'special-key'
-                },
-                body: JSON.stringify(body)
-            });
-            if (res.ok) {
-                petList[idx].name = name;
-                petList[idx].status = status;
-                alert('Данные обновлены!');
-            } else {
-                alert('Ошибка при обновлении');
-            }
-            renderPetList();
+            const name = document.getElementById('edit-name-'+idx).value;
+            const status = document.getElementById('edit-status-'+idx).value;
+            const body = { id: pet.id, name, photoUrls: [], status };
+            try {
+                const res = await fetch('https://petstore.swagger.io/v2/pet', {
+                    method: 'PUT',
+                    headers: { 'accept': 'application/json', 'Content-Type': 'application/json', 'api_key': 'special-key' },
+                    body: JSON.stringify(body)
+                });
+                alert(res.ok ? 'Данные обновлены!' : 'Ошибка при обновлении');
+            } catch { alert('Сетевая ошибка'); }
+            fetchPets();
         };
 
         function showModal() {
-            document.getElementById('overlay').style.display = 'flex';
-            document.getElementById('modal').style.display = 'flex';
+            document.getElementById('overlay').classList.add('visible');
+            document.getElementById('modal').classList.add('visible');
         }
         function hideModal() {
-            document.getElementById('overlay').style.display = 'none';
-            document.getElementById('modal').style.display = 'none';
-            document.getElementById('petid-modal').value = '';
-            document.getElementById('petname-modal').value = '';
-            document.getElementById('petstatus-modal').value = statuses[0];
+            document.getElementById('overlay').classList.remove('visible');
+            document.getElementById('modal').classList.remove('visible');
         }
 
         document.getElementById('show-btn').onclick = fetchPets;
-
         document.getElementById('add-btn').onclick = showModal;
         document.getElementById('cancel-add').onclick = hideModal;
-
         document.getElementById('confirm-add').onclick = async function() {
             const id = Number(document.getElementById('petid-modal').value);
             const name = document.getElementById('petname-modal').value;
             const status = document.getElementById('petstatus-modal').value;
-            const body = {
-                id: id,
-                name: name,
-                photoUrls: [],
-                status: status
-            };
-            const res = await fetch('https://petstore.swagger.io/v2/pet', {
-                method: 'POST',
-                headers: {
-                    'accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'api_key': 'special-key'
-                },
-                body: JSON.stringify(body)
-            });
-            alert(res.ok ? 'Питомец добавлен!' : 'Ошибка при добавлении');
+            const body = { id, name, photoUrls: [], status };
+            try {
+                const res = await fetch('https://petstore.swagger.io/v2/pet', {
+                    method: 'POST',
+                    headers: { 'accept': 'application/json', 'Content-Type': 'application/json', 'api_key': 'special-key' },
+                    body: JSON.stringify(body)
+                });
+                alert(res.ok ? 'Питомец добавлен!' : 'Ошибка при добавлении');
+            } catch { alert('Сетевая ошибка'); }
             hideModal();
             fetchPets();
         };
 
-        document.getElementById('edit-btn').onclick = function () {
+        document.getElementById('edit-btn').onclick = () => {
             inEditMode = !inEditMode;
+            document.getElementById('edit-btn').textContent = inEditMode ? 'Выйти из редактирования' : 'Редактировать';
             renderPetList();
         };
+
+        document.getElementById('overlay').onclick = hideModal;
     </script>
 </body>
 </html>
