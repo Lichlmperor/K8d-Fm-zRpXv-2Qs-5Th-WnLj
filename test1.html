@@ -2,22 +2,46 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Список Pet ID</title>
+    <title>Petstore Demo</title>
     <style>
         #pet-list { margin-top: 15px; }
+        .modal, .overlay {
+            display: none; position: fixed;
+            left: 0; top: 0; width: 100%; height: 100%;
+            justify-content: center; align-items: center;
+        }
+        .modal { z-index: 2; background: #fff; border: 1px solid #333; padding: 20px; border-radius: 7px; text-align: center; }
+        .overlay { background: rgba(0,0,0,0.2); z-index: 1; }
+        .edit-row input { width: 80px; margin-right: 9px; }
     </style>
 </head>
 <body>
-    <button id="load-btn">Показать список Pet ID</button>
+    <button id="show-btn">Показать список Pet ID</button>
+    <button id="add-btn">Добавить</button>
+    <button id="edit-btn">Редактировать</button>
     <div id="pet-list"></div>
 
+    <!-- Модальное окно добавления -->
+    <div id="overlay" class="overlay"></div>
+    <div id="modal" class="modal">
+        <h3>Добавить питомца</h3>
+        <input type="number" id="petid-modal" placeholder="petid"><br><br>
+        <input type="text" id="petname-modal" placeholder="имя"><br><br>
+        <input type="text" id="petstatus-modal" placeholder="статус"><br><br>
+        <button id="confirm-add">Подтвердить</button>
+        <button id="cancel-add">Отмена</button>
+    </div>
+
     <script>
-        document.getElementById('load-btn').onclick = async function() {
-            const petIds = [1, 2, 3, 4, 5]; // Можно заменить на свой массив ID
+        let petList = [];
+        let inEditMode = false;
+
+        async function fetchPets() {
+            const petIds = [1, 2, 3, 4, 5];
+            petList = [];
             const petListDiv = document.getElementById('pet-list');
             petListDiv.innerHTML = 'Загружается...';
 
-            let results = [];
             for (const id of petIds) {
                 try {
                     const res = await fetch(`https://petstore.swagger.io/v2/pet/${id}`, {
@@ -28,17 +52,118 @@
                         }
                     });
                     if (!res.ok) {
-                        results.push(`petid: ${id} — не найден`);
+                        petList.push({ id, name: '', status: '', error: true });
                         continue;
                     }
                     const data = await res.json();
-                    results.push(`petid: ${data.id} — имя: ${data.name || 'нет имени'}`);
+                    petList.push({ id: data.id, name: data.name || '', status: data.status || '', error: false });
                 } catch (e) {
-                    results.push(`petid: ${id} — ошибка запроса`);
+                    petList.push({ id, name: '', status: '', error: true });
                 }
             }
+            renderPetList();
+        }
 
-            petListDiv.innerHTML = '<ul>' + results.map(r => `<li>${r}</li>`).join('') + '</ul>';
+        function renderPetList() {
+            const petListDiv = document.getElementById('pet-list');
+            if (petList.length === 0) {
+                petListDiv.innerHTML = 'Нет данных';
+                return;
+            }
+            let html = '<ul>';
+            petList.forEach((pet, idx) => {
+                if (pet.error) {
+                    html += `<li>petid: ${pet.id} — не найден</li>`;
+                } else if (inEditMode) {
+                    html += `
+                        <li class="edit-row">
+                            <input value="${pet.id}" disabled>
+                            <input value="${pet.name}" id="edit-name-${idx}">
+                            <input value="${pet.status}" id="edit-status-${idx}">
+                            <button onclick="saveEdit(${idx})">Сохранить</button>
+                        </li>`;
+                } else {
+                    html += `<li>petid: ${pet.id} — имя: ${pet.name} — статус: ${pet.status}</li>`;
+                }
+            });
+            html += '</ul>';
+            petListDiv.innerHTML = html;
+        }
+
+        window.saveEdit = async function(idx) {
+            const pet = petList[idx];
+            const name = document.getElementById('edit-name-' + idx).value;
+            const status = document.getElementById('edit-status-' + idx).value;
+            const body = {
+                id: pet.id,
+                name: name,
+                photoUrls: [],
+                status: status
+            };
+            const res = await fetch('https://petstore.swagger.io/v2/pet', {
+                method: 'PUT',
+                headers: {
+                    'accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'api_key': 'special-key'
+                },
+                body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                petList[idx].name = name;
+                petList[idx].status = status;
+                alert('Данные обновлены!');
+            } else {
+                alert('Ошибка при обновлении');
+            }
+            renderPetList();
+        };
+
+        // Модальное окно добавления
+        function showModal() {
+            document.getElementById('overlay').style.display = 'flex';
+            document.getElementById('modal').style.display = 'flex';
+        }
+        function hideModal() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('petid-modal').value = '';
+            document.getElementById('petname-modal').value = '';
+            document.getElementById('petstatus-modal').value = '';
+        }
+
+        document.getElementById('show-btn').onclick = fetchPets;
+
+        document.getElementById('add-btn').onclick = showModal;
+        document.getElementById('cancel-add').onclick = hideModal;
+
+        document.getElementById('confirm-add').onclick = async function() {
+            const id = Number(document.getElementById('petid-modal').value);
+            const name = document.getElementById('petname-modal').value;
+            const status = document.getElementById('petstatus-modal').value;
+            const body = {
+                id: id,
+                name: name,
+                photoUrls: [],
+                status: status
+            };
+            const res = await fetch('https://petstore.swagger.io/v2/pet', {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'Content-Type': 'application/json',
+                    'api_key': 'special-key'
+                },
+                body: JSON.stringify(body)
+            });
+            alert(res.ok ? 'Питомец добавлен!' : 'Ошибка при добавлении');
+            hideModal();
+            fetchPets();
+        };
+
+        document.getElementById('edit-btn').onclick = function () {
+            inEditMode = !inEditMode;
+            renderPetList();
         };
     </script>
 </body>
