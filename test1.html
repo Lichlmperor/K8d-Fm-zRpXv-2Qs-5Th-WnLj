@@ -3,16 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <title>Petstore Demo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        body { font-family: sans-serif; margin: 10px; }
         #pet-list { margin-top: 15px; }
+        button { font-size: 1.1em; padding: 12px 18px; margin-right: 7px; margin-bottom: 7px; border-radius: 8px; border: 1px solid #888;}
+        @media (max-width: 600px) {
+            button { width: 98%; margin-bottom: 10px; }
+            .modal { width: 95% !important; min-width: 0 !important; }
+            .edit-row input, .edit-row select { width: 60px; margin-right: 6px; font-size: 1em;}
+        }
         .modal, .overlay {
-            display: none; position: fixed;
-            left: 0; top: 0; width: 100%; height: 100%;
+            display: none; position: fixed; left: 0; top: 0; width: 100%; height: 100%;
             justify-content: center; align-items: center;
         }
-        .modal { z-index: 2; background: #fff; border: 1px solid #333; padding: 20px; border-radius: 7px; text-align: center; }
+        .modal { z-index: 2; background: #fff; border: 1px solid #333; padding: 17px; border-radius: 12px; text-align: center; min-width: 380px; width: 40vw;}
         .overlay { background: rgba(0,0,0,0.2); z-index: 1; }
-        .edit-row input { width: 80px; margin-right: 9px; }
+        .edit-row input, .edit-row select { width: 70px; margin-right: 11px; font-size: 1.1em;}
+        input, select { font-size: 1.1em; padding: 6px; margin-bottom: 7px; border-radius: 7px; border: 1px solid #aaa;}
+        ul { padding-left: 0; }
+        li { list-style: none; margin-bottom: 10px; font-size: 1.1em; }
+        .edit-row { display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 5px; }
     </style>
 </head>
 <body>
@@ -21,18 +32,22 @@
     <button id="edit-btn">Редактировать</button>
     <div id="pet-list"></div>
 
-    <!-- Модальное окно добавления -->
     <div id="overlay" class="overlay"></div>
     <div id="modal" class="modal">
-        <h3>Добавить питомца</h3>
-        <input type="number" id="petid-modal" placeholder="petid"><br><br>
-        <input type="text" id="petname-modal" placeholder="имя"><br><br>
-        <input type="text" id="petstatus-modal" placeholder="статус"><br><br>
+        <h3 style="margin-top:-5px;">Добавить питомца</h3>
+        <input type="number" id="petid-modal" placeholder="petid"><br>
+        <input type="text" id="petname-modal" placeholder="имя"><br>
+        <select id="petstatus-modal">
+            <option value="available">available</option>
+            <option value="pending">pending</option>
+            <option value="sold">sold</option>
+        </select><br>
         <button id="confirm-add">Подтвердить</button>
         <button id="cancel-add">Отмена</button>
     </div>
 
     <script>
+        const statuses = ["available", "pending", "sold"];
         let petList = [];
         let inEditMode = false;
 
@@ -79,8 +94,10 @@
                         <li class="edit-row">
                             <input value="${pet.id}" disabled>
                             <input value="${pet.name}" id="edit-name-${idx}">
-                            <input value="${pet.status}" id="edit-status-${idx}">
-                            <button onclick="saveEdit(${idx})">Сохранить</button>
+                            <select id="edit-status-${idx}">
+                                ${statuses.map(s => `<option value="${s}" ${pet.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                            <button onclick="saveEdit(${idx})" style="padding:7px 13px;border-radius:7px;">Сохранить</button>
                         </li>`;
                 } else {
                     html += `<li>petid: ${pet.id} — имя: ${pet.name} — статус: ${pet.status}</li>`;
@@ -119,7 +136,6 @@
             renderPetList();
         };
 
-        // Модальное окно добавления
         function showModal() {
             document.getElementById('overlay').style.display = 'flex';
             document.getElementById('modal').style.display = 'flex';
@@ -129,7 +145,7 @@
             document.getElementById('modal').style.display = 'none';
             document.getElementById('petid-modal').value = '';
             document.getElementById('petname-modal').value = '';
-            document.getElementById('petstatus-modal').value = '';
+            document.getElementById('petstatus-modal').value = statuses[0];
         }
 
         document.getElementById('show-btn').onclick = fetchPets;
