@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Список Pet ID</title>
+    <style>
+        #pet-list { margin-top: 15px; }
+    </style>
+</head>
+<body>
+    <button id="load-btn">Показать список Pet ID</button>
+    <div id="pet-list"></div>
+
+    <script>
+        document.getElementById('load-btn').onclick = async function() {
+            const petIds = [1, 2, 3, 4, 5]; // Можно заменить на свой массив ID
+            const petListDiv = document.getElementById('pet-list');
+            petListDiv.innerHTML = 'Загружается...';
+
+            let results = [];
+            for (const id of petIds) {
+                try {
+                    const res = await fetch(`https://petstore.swagger.io/v2/pet/${id}`, {
+                        method: 'GET',
+                        headers: {
+                            'accept': 'application/json',
+                            'api_key': 'special-key'
+                        }
+                    });
+                    if (!res.ok) {
+                        results.push(`petid: ${id} — не найден`);
+                        continue;
+                    }
+                    const data = await res.json();
+                    results.push(`petid: ${data.id} — имя: ${data.name || 'нет имени'}`);
+                } catch (e) {
+                    results.push(`petid: ${id} — ошибка запроса`);
+                }
+            }
+
+            petListDiv.innerHTML = '<ul>' + results.map(r => `<li>${r}</li>`).join('') + '</ul>';
+        };
+    </script>
+</body>
+</html>
