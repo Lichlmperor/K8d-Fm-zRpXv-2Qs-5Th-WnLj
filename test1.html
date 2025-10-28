@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Petstore Demo — общее сохранение изменений</title>
+  <title>Petstore Demo — удаление питомца</title>
   <style>
     :root {
       --gap: 12px;
@@ -21,9 +21,9 @@
       padding: 20px;
     }
     .container { width: 100%; max-width: var(--max-width); }
-    .controls { display: flex; gap: var(--gap); flex-wrap: wrap; margin-bottom: 16px; }
-    .controls button {
-      padding: 10px 14px;
+    .controls { display: flex; flex-wrap: wrap; gap: var(--gap); margin-bottom: 16px; }
+    .controls button, .controls select {
+      padding: 8px 12px;
       border: 1px solid rgba(0,0,0,0.1);
       border-radius: 8px;
       background: var(--card-bg);
@@ -48,7 +48,7 @@
       align-items: center;
     }
     .edit-row input, .edit-row select {
-      padding: 8px;
+      padding: 6px;
       border-radius: 6px;
       border: 1px solid rgba(0,0,0,0.1);
     }
@@ -89,7 +89,7 @@
     }
     @media (max-width:640px){
       .controls{flex-direction:column;}
-      .controls button{width:100%;}
+      .controls button,.controls select{width:100%;}
       #pet-list li{flex-direction:column;align-items:flex-start;}
       .modal .row,.modal .actions{flex-direction:column;align-items:stretch;}
       .modal .actions button{width:100%;}
@@ -99,14 +99,26 @@
 <body>
 <div class="container">
   <div class="controls">
-    <button id="show-btn">Показать список Pet ID</button>
+    <button id="show-btn">Показать список</button>
+    <button id="show-all-btn">Показать всех</button>
+    <button id="search-id-btn">Поиск по ID</button>
+    <button id="search-name-btn">Поиск по имени</button>
+    <button id="search-status-btn">Поиск по статусу</button>
     <button id="add-btn">Добавить</button>
     <button id="edit-btn">Редактировать</button>
     <button id="save-all-btn" style="display:none;background:#cfe9cf;">Сохранить все изменения</button>
   </div>
+
+  <!-- блок удаления -->
+  <div class="controls" id="delete-block" style="display:none;">
+    <select id="delete-select"></select>
+    <button id="delete-btn" style="background:#ffdede;">Удалить выбранного</button>
+  </div>
+
   <div id="pet-list">Нажмите "Показать список Pet ID"</div>
 </div>
 
+<!-- модальное окно -->
 <div id="overlay" class="overlay"></div>
 <div id="modal" class="modal">
   <h3>Добавить питомца</h3>
@@ -137,144 +149,204 @@ let petList = [];
 let inEditMode = false;
 let loaded = false;
 
-async function fetchPets() {
-  if (loaded) { renderPetList(); return; }
-  const ids = [1,2,3,4,5];
-  const list = document.getElementById('pet-list');
-  list.innerHTML = 'Загрузка...';
-  petList = [];
-  for (const id of ids) {
-    try {
-      const res = await fetch(`https://petstore.swagger.io/v2/pet/${id}`);
-      if (!res.ok) throw new Error('Ошибка');
-      const data = await res.json();
-      petList.push({id:data.id, name:data.name||'', status:data.status||'available'});
-    } catch {
-      petList.push({id, name:'', status:'unknown'});
-    }
+// ---- Получение питомцев ----
+async function fetchPets(limit=5){
+  const ids = Array.from({length:limit},(_,i)=>i+1);
+  const list=document.getElementById('pet-list');
+  list.innerHTML='Загрузка...';
+  petList=[];
+  for(const id of ids){
+    try{
+      const res=await fetch(`https://petstore.swagger.io/v2/pet/${id}`);
+      if(!res.ok)throw new Error();
+      const data=await res.json();
+      if(data && data.name && data.status && data.status!=='unknown'){
+        petList.push({id:data.id,name:data.name,status:data.status});
+      }
+    }catch{}
   }
-  loaded = true;
+  loaded=true;
+  sortPets();
   renderPetList();
+  updateDeleteSelect();
 }
 
-function renderPetList() {
-  const listDiv = document.getElementById('pet-list');
-  if (!petList.length) { listDiv.textContent = 'Нет данных'; return; }
-  let html = '<ul>';
-  petList.forEach((pet,i)=>{
-    if (inEditMode){
-      html += `
-        <li class="edit-row">
-          <div>ID: <input value="${pet.id}" disabled></div>
-          <div>Имя: <input id="edit-name-${i}" value="${escapeHtml(pet.name)}"></div>
-          <div>Статус:
-            <select id="edit-status-${i}">
-              ${['available','pending','sold'].map(s=>`<option value="${s}" ${s===pet.status?'selected':''}>${s}</option>`).join('')}
-            </select>
-          </div>
-        </li>`;
-    } else {
-      html += `<li>
-        <div><strong>ID:</strong> ${pet.id}</div>
-        <div><strong>Имя:</strong> ${escapeHtml(pet.name||'—')}</div>
-        <div><strong>Статус:</strong> ${escapeHtml(pet.status)}</div>
+// ---- сортировка ----
+function sortPets(){
+  petList.sort((a,b)=>a.id-b.id);
+}
+
+// ---- обновление выпадающего списка для удаления ----
+function updateDeleteSelect(){
+  const delBlock=document.getElementById('delete-block');
+  const sel=document.getElementById('delete-select');
+  if(!petList.length){delBlock.style.display='none';return;}
+  delBlock.style.display='flex';
+  sel.innerHTML=petList.map(p=>`<option value="${p.id}">${p.id} — ${p.name}</option>`).join('');
+}
+
+// ---- отображение ----
+function renderPetList(){
+  const div=document.getElementById('pet-list');
+  if(!petList.length){div.textContent='Нет доступных питомцев';return;}
+  sortPets();
+  let html='<ul>';
+  petList.forEach((p,i)=>{
+    if(inEditMode){
+      html+=`<li class="edit-row">
+        <div>ID:<input value="${p.id}" disabled></div>
+        <div>Имя:<input id="edit-name-${i}" value="${escapeHtml(p.name)}"></div>
+        <div>Статус:<select id="edit-status-${i}">
+          ${['available','pending','sold'].map(s=>`<option value="${s}" ${s===p.status?'selected':''}>${s}</option>`).join('')}
+        </select></div>
       </li>`;
+    }else{
+      html+=`<li><div><strong>ID:</strong>${p.id}</div><div><strong>Имя:</strong>${escapeHtml(p.name||'—')}</div><div><strong>Статус:</strong>${escapeHtml(p.status)}</div></li>`;
     }
   });
-  html += '</ul>';
-  listDiv.innerHTML = html;
+  html+='</ul>';
+  div.innerHTML=html;
 }
+function escapeHtml(s){return String(s||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');}
 
-function escapeHtml(str){return String(str||'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');}
+// ---- кнопки ----
+document.getElementById('show-btn').onclick=()=>{
+  const n=prompt('Сколько питомцев показать? Введите число (например, 5):');
+  if(!n||isNaN(n)||n<1){alert('Введите корректное число.');return;}
+  fetchPets(parseInt(n));
+};
+document.getElementById('show-all-btn').onclick=()=>fetchPets(20);
 
-document.getElementById('show-btn').onclick = fetchPets;
-
-document.getElementById('edit-btn').onclick = ()=>{
-  if (!loaded){alert('Сначала загрузите список.');return;}
+document.getElementById('edit-btn').onclick=()=>{
+  if(!loaded){alert('Сначала загрузите список.');return;}
   inEditMode=!inEditMode;
   document.getElementById('edit-btn').textContent=inEditMode?'Выйти из редактирования':'Редактировать';
   document.getElementById('save-all-btn').style.display=inEditMode?'inline-block':'none';
   renderPetList();
 };
 
-document.getElementById('save-all-btn').onclick = async ()=>{
-  const updatedPets = [];
-  for (let i=0;i<petList.length;i++){
-    const name = document.getElementById('edit-name-'+i).value.trim();
-    const status = document.getElementById('edit-status-'+i).value;
-    if (name!==petList[i].name || status!==petList[i].status){
-      petList[i].name=name;
-      petList[i].status=status;
-      updatedPets.push(petList[i]);
+document.getElementById('save-all-btn').onclick=async()=>{
+  const updated=[];
+  for(let i=0;i<petList.length;i++){
+    const name=document.getElementById('edit-name-'+i).value.trim();
+    const status=document.getElementById('edit-status-'+i).value;
+    if(name!==petList[i].name||status!==petList[i].status){
+      petList[i].name=name;petList[i].status=status;updated.push(petList[i]);
     }
   }
-  if(!updatedPets.length){alert('Изменений нет.');return;}
-  let success=0, fail=0;
-  for(const pet of updatedPets){
+  if(!updated.length){alert('Изменений нет.');return;}
+  let success=0,fail=0;
+  for(const p of updated){
     try{
       const res=await fetch('https://petstore.swagger.io/v2/pet',{
-        method:'PUT',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({id:pet.id,name:pet.name,photoUrls:[],status:pet.status})
+        method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({id:p.id,name:p.name,photoUrls:[],status:p.status})
       });
-      if(res.ok) success++; else fail++;
+      res.ok?success++:fail++;
     }catch{fail++;}
   }
   alert(`Сохранено: ${success}, ошибок: ${fail}`);
   renderPetList();
 };
 
-document.getElementById('add-btn').onclick = ()=>{
+// ---- добавление ----
+document.getElementById('add-btn').onclick=()=>{
   if(!loaded){alert('Сначала загрузите список.');return;}
   showModal();
 };
-document.getElementById('cancel-add').onclick = hideModal;
+document.getElementById('cancel-add').onclick=hideModal;
 
-document.getElementById('confirm-add').onclick = async function(){
-  const id = Number(document.getElementById('petid-modal').value);
-  const name = document.getElementById('petname-modal').value.trim();
-  const status = document.getElementById('petstatus-modal').value;
+document.getElementById('confirm-add').onclick=async()=>{
+  const id=Number(document.getElementById('petid-modal').value);
+  const name=document.getElementById('petname-modal').value.trim();
+  const status=document.getElementById('petstatus-modal').value;
   if(!id){alert('Введите ID');return;}
-
-  const existingIndex = petList.findIndex(p=>p.id===id);
-  if(existingIndex !== -1){
-    const existing = petList[existingIndex];
-    const isEmpty = !existing.name || existing.status==='unknown';
-    if(isEmpty){
-      try{
-        const res = await fetch('https://petstore.swagger.io/v2/pet',{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({id,name,photoUrls:[],status})
-        });
-        if(res.ok){
-          petList[existingIndex] = {id,name,status};
-          alert('Питомец заменён!');
-        }else alert('Ошибка при замене');
-      }catch{alert('Сетевая ошибка');}
-    } else {
-      alert(`Питомец с ID ${id} уже существует!`);
-      hideModal();
-      return;
-    }
-  } else {
-    try{
-      const res = await fetch('https://petstore.swagger.io/v2/pet',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({id,name,photoUrls:[],status})
-      });
-      if(res.ok){
-        petList.push({id,name,status});
-        alert('Питомец добавлен!');
-      }else alert('Ошибка при добавлении');
-    }catch{alert('Сетевая ошибка');}
+  const i=petList.findIndex(p=>p.id===id);
+  if(i!==-1){
+    const e=petList[i],empty=!e.name||e.status==='unknown';
+    if(empty){
+      await sendPet('POST',{id,name,photoUrls:[],status});
+      petList[i]={id,name,status};
+      alert('Питомец заменён!');
+    }else{alert(`Питомец с ID ${id} уже существует!`);hideModal();return;}
+  }else{
+    await sendPet('POST',{id,name,photoUrls:[],status});
+    petList.push({id,name,status});
+    alert('Питомец добавлен!');
   }
-
-  hideModal();
-  renderPetList();
+  hideModal();sortPets();renderPetList();updateDeleteSelect();
 };
 
+// ---- удаление питомца ----
+document.getElementById('delete-btn').onclick=async()=>{
+  const select=document.getElementById('delete-select');
+  const id=select.value;
+  if(!id){alert('Выберите питомца для удаления');return;}
+  if(!confirm(`Удалить питомца с ID ${id}?`))return;
+  try{
+    const res=await fetch(`https://petstore.swagger.io/v2/pet/${id}`,{method:'DELETE'});
+    if(res.ok){
+      petList=petList.filter(p=>p.id!=id);
+      alert('Питомец удалён');
+      renderPetList();updateDeleteSelect();
+    }else{
+      alert('Ошибка при удалении с сервера');
+    }
+  }catch{
+    alert('Ошибка при подключении к серверу');
+  }
+};
+
+// ---- поиск ----
+document.getElementById('search-id-btn').onclick=async()=>{
+  const id=prompt('Введите ID питомца:');
+  if(!id)return;
+  try{
+    const res=await fetch(`https://petstore.swagger.io/v2/pet/${id}`);
+    if(!res.ok)throw new Error();
+    const data=await res.json();
+    if(data && data.name && data.status && data.status!=='unknown'){
+      petList=[{id:data.id,name:data.name,status:data.status}];
+      loaded=true;
+      sortPets();renderPetList();updateDeleteSelect();
+    }else alert('Питомец не найден или пустой');
+  }catch{alert('Питомец не найден');}
+};
+
+document.getElementById('search-name-btn').onclick=()=>{
+  if(!loaded){alert('Сначала загрузите список.');return;}
+  const name=prompt('Введите имя для поиска (частично или полностью):');
+  if(!name)return;
+  const found=petList.filter(p=>p.name.toLowerCase().includes(name.toLowerCase()));
+  if(!found.length){alert('Не найдено питомцев с таким именем');return;}
+  petList=found;
+  sortPets();renderPetList();updateDeleteSelect();
+};
+
+document.getElementById('search-status-btn').onclick=async()=>{
+  const st=prompt('Введите статус (available, pending, sold):');
+  if(!st)return;
+  try{
+    const res=await fetch(`https://petstore.swagger.io/v2/pet/findByStatus?status=${st}`);
+    if(!res.ok)throw new Error();
+    const data=await res.json();
+    petList=data
+      .filter(p=>p && p.name && p.status && p.status!=='unknown')
+      .map(p=>({id:p.id,name:p.name,status:p.status}));
+    loaded=true;
+    sortPets();renderPetList();updateDeleteSelect();
+  }catch{alert('Ошибка при поиске или статус не найден');}
+};
+
+// ---- служебные ----
+async function sendPet(m,b){
+  try{
+    const r=await fetch('https://petstore.swagger.io/v2/pet',{
+      method:m,headers:{'Content-Type':'application/json'},body:JSON.stringify(b)
+    });
+    if(!r.ok)alert('Ошибка при отправке');
+  }catch{alert('Сетевая ошибка');}
+}
 function showModal(){
   document.getElementById('overlay').classList.add('visible');
   document.getElementById('modal').classList.add('visible');
@@ -285,7 +357,7 @@ function hideModal(){
   document.getElementById('petid-modal').value='';
   document.getElementById('petname-modal').value='';
 }
-document.getElementById('overlay').onclick = hideModal;
+document.getElementById('overlay').onclick=hideModal;
 </script>
 </body>
 </html>
